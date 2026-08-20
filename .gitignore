@@ -33,6 +33,8 @@ rust/target/
 
 # Project-specific
 apps/candlestick-patterns/data
+apps/risk-managed-trader/paper_state.json
+apps/risk-managed-trader/backtest_output/
 docs/docs/api
 docs/site/
 
