@@ -69,6 +69,20 @@ def test_trade_count_resets_on_new_day():
     assert position is not None
 
 
+def test_single_trade_at_default_risk_can_exceed_daily_loss_cap():
+    # Documents a known property of the current defaults: at 7% risk/trade
+    # and a 2% daily-loss cap, one stopped-out trade can lose well past the
+    # daily limit before the circuit breaker (which only blocks *new*
+    # entries) ever gets a chance to act.
+    rm = make_rm(starting_capital=1000.0, max_risk_per_trade_pct=0.07, max_daily_loss_pct=0.02)
+    position, _ = rm.open_position("AAA", "2024-01-01", 100.0, 93.0, marks={})  # 7% stop distance
+    assert position is not None
+    pnl = rm.close_position("AAA", "2024-01-01", 93.0, marks={"AAA": 93.0}, reason="stop_loss")
+    loss_pct = -pnl / 1000.0
+    assert loss_pct > rm.config.max_daily_loss_pct
+    assert rm.halted_today()
+
+
 def test_daily_loss_circuit_breaker_halts_new_entries():
     rm = make_rm(starting_capital=1000.0, max_daily_loss_pct=0.02, max_trades_per_day=10)
     position, _ = rm.open_position("AAA", "2024-01-01", 100.0, 99.0, marks={})

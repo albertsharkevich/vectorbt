@@ -15,9 +15,9 @@ orders that violate them:
 | Rule | Enforcement |
 |---|---|
 | Start with $500-$1,000 | `starting_capital` |
-| Risk no more than 1% of equity per trade | `max_risk_per_trade_pct`; position size = `(equity * 1%) / (entry - stop_loss)` |
+| Risk no more than 7% of equity per trade | `max_risk_per_trade_pct`; position size = `(equity * 7%) / (entry - stop_loss)` |
 | Max 2-3 trades per day | `max_trades_per_day`, counted per calendar day, resets at the next day |
-| Max daily loss of 2%, then stop for the day | `max_daily_loss_pct`; a circuit breaker that blocks new entries once tripped, existing stops still fire |
+| Max daily loss of 2%, then stop for the day | `max_daily_loss_pct`; a circuit breaker that blocks new entries once tripped, existing stops still fire. **At 7% risk/trade this cap is not load-bearing against a single trade** -- one stopped-out position can lose more than 2% in one shot, since the breaker only stops *new* entries after a loss lands. It still limits how many losing trades compound in one day. |
 | Every position has a predetermined stop-loss | `RiskManager.size_order` raises `RiskViolation` if asked to size an order with no stop, or a stop above entry |
 | No leverage/margin | `allow_leverage=False`; order size is capped to available cash |
 | Only liquid U.S. stocks/ETFs | `data.liquidity_filter`, trailing 20-day average dollar volume >= `min_avg_dollar_volume` |
@@ -25,12 +25,13 @@ orders that violate them:
 | Objective entry/exit signals only | `strategy.py:generate_signals` -- a fixed SMA-crossover/trend rule, no discretionary input |
 | A single trade can't be the whole account | `max_position_pct` caps notional exposure per position (50% by default, per your stated limit) |
 
-One real constraint this surfaces: at $500-1,000 with a 1% risk cap, whole-
-share sizing on normal-priced ETFs (SPY, QQQ, ...) rounds most trades down to
-**zero shares** -- the risk-adjusted position is smaller than one share. The
-engine defaults to fractional-share sizing (`allow_fractional_shares=True`)
-to make the strategy viable at this account size, since Robinhood supports
-fractional shares on most liquid names. Set it to `False` to see the
+One real constraint this surfaces: at $500-1,000 and a *lower* risk cap (1%
+was the original starting point here), whole-share sizing on normal-priced
+ETFs (SPY, QQQ, ...) rounds most trades down to **zero shares** -- the
+risk-adjusted position is smaller than one share. At 7% this binds less
+often, but fractional sizing (`allow_fractional_shares=True`) is still the
+default so smaller risk settings, or lower-priced positions within a trade,
+stay viable. Set it to `False` to see the
 whole-share-only behavior (verified in `tests/test_risk.py`); live trading
 would need to confirm each symbol is fractionable before sizing it that way.
 

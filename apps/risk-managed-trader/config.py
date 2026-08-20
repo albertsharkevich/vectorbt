@@ -14,7 +14,15 @@ class RiskConfig:
 
     # Position sizing: risk (entry - stop_loss) * shares must not exceed this
     # fraction of current equity.
-    max_risk_per_trade_pct: float = 0.01
+    #
+    # NOTE: at 7% risk/trade, a single stopped-out trade can lose far more
+    # than max_daily_loss_pct (2% by default) in one shot -- the daily-loss
+    # circuit breaker only blocks *new* entries after a loss lands, it does
+    # not cap the loss on the trade that triggered it. These two numbers were
+    # chosen independently; if you want the daily breaker to mean something
+    # in practice, raise max_daily_loss_pct too (or accept that one bad trade
+    # can and will blow through it).
+    max_risk_per_trade_pct: float = 0.07
 
     # A single position's notional value (shares * entry_price) may not exceed
     # this fraction of equity, regardless of how far away the stop is.
