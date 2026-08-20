@@ -69,11 +69,11 @@ def test_trade_count_resets_on_new_day():
     assert position is not None
 
 
-def test_single_trade_at_default_risk_can_exceed_daily_loss_cap():
-    # Documents a known property of the current defaults: at 7% risk/trade
-    # and a 2% daily-loss cap, one stopped-out trade can lose well past the
-    # daily limit before the circuit breaker (which only blocks *new*
-    # entries) ever gets a chance to act.
+def test_mismatched_risk_and_daily_loss_caps_let_one_trade_blow_through():
+    # If risk/trade and the daily-loss cap are set independently (not the
+    # current defaults, which match them), a single stopped-out trade can
+    # lose well past the daily limit before the circuit breaker -- which
+    # only blocks *new* entries -- ever gets a chance to act.
     rm = make_rm(starting_capital=1000.0, max_risk_per_trade_pct=0.07, max_daily_loss_pct=0.02)
     position, _ = rm.open_position("AAA", "2024-01-01", 100.0, 93.0, marks={})  # 7% stop distance
     assert position is not None
@@ -81,6 +81,30 @@ def test_single_trade_at_default_risk_can_exceed_daily_loss_cap():
     loss_pct = -pnl / 1000.0
     assert loss_pct > rm.config.max_daily_loss_pct
     assert rm.halted_today()
+
+
+def test_matched_risk_and_daily_loss_caps_halt_after_exactly_one_full_loss():
+    # Current defaults: max_daily_loss_pct == max_risk_per_trade_pct (7%).
+    # One full-risk stop-out is exactly enough to trip the breaker, but a
+    # second trade the same day cannot compound on top of it. max_position_pct
+    # is raised to 1.0 here so the 50% notional cap doesn't itself reduce the
+    # trade below 7% risk (as it does for most real trades -- see the
+    # backtest notes in README.md) and mask what's being tested.
+    rm = make_rm(
+        starting_capital=1000.0,
+        max_risk_per_trade_pct=0.07,
+        max_daily_loss_pct=0.07,
+        max_trades_per_day=10,
+        max_position_pct=1.0,
+    )
+    position, _ = rm.open_position("AAA", "2024-01-01", 100.0, 93.0, marks={})  # 7% stop distance
+    assert position is not None
+    rm.close_position("AAA", "2024-01-01", 93.0, marks={"AAA": 93.0}, reason="stop_loss")
+    assert rm.halted_today()
+
+    position, reason = rm.open_position("BBB", "2024-01-01", 10.0, 9.0, marks={})
+    assert position is None
+    assert "daily loss" in reason
 
 
 def test_daily_loss_circuit_breaker_halts_new_entries():

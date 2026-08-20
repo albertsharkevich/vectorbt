@@ -17,7 +17,7 @@ orders that violate them:
 | Start with $500-$1,000 | `starting_capital` |
 | Risk no more than 7% of equity per trade | `max_risk_per_trade_pct`; position size = `(equity * 7%) / (entry - stop_loss)` |
 | Max 2-3 trades per day | `max_trades_per_day`, counted per calendar day, resets at the next day |
-| Max daily loss of 2%, then stop for the day | `max_daily_loss_pct`; a circuit breaker that blocks new entries once tripped, existing stops still fire. **At 7% risk/trade this cap is not load-bearing against a single trade** -- one stopped-out position can lose more than 2% in one shot, since the breaker only stops *new* entries after a loss lands. It still limits how many losing trades compound in one day. |
+| Max daily loss of 7% (matched to risk/trade), then stop for the day | `max_daily_loss_pct`; a circuit breaker that blocks new entries once tripped, existing stops still fire. Set equal to `max_risk_per_trade_pct` so one full-risk loss is exactly enough to end the day -- it still stops a second or third loss from compounding on top, but a single stopped-out trade can land right at the cap rather than safely under it, since the breaker only stops *new* entries after a loss lands and can't cap the loss on the trade that triggers it. |
 | Every position has a predetermined stop-loss | `RiskManager.size_order` raises `RiskViolation` if asked to size an order with no stop, or a stop above entry |
 | No leverage/margin | `allow_leverage=False`; order size is capped to available cash |
 | Only liquid U.S. stocks/ETFs | `data.liquidity_filter`, trailing 20-day average dollar volume >= `min_avg_dollar_volume` |
